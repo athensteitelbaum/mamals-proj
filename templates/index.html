@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mammal Classifier — Teachable Machine</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.9.0/p5.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.9.0/addons/p5.dom.min.js"></script>
+  <script src="https://unpkg.com/ml5@latest/dist/ml5.min.js" type="text/javascript"></script>
+
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --blush:    #f7d6e0;
+      --lavender: #e2d9f3;
+      --mint:     #d4ede8;
+      --butter:   #fef3c7;
+      --sky:      #dbeafe;
+      --text:     #3d3553;
+      --muted:    #7c6f8e;
+      --card-bg:  rgba(255,255,255,0.65);
+      --shadow:   0 8px 32px rgba(100,80,140,0.10);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: linear-gradient(135deg, var(--blush) 0%, var(--lavender) 40%, var(--mint) 100%);
+      min-height: 100vh;
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    body::before, body::after {
+      content: '';
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(80px);
+      opacity: 0.35;
+      pointer-events: none;
+      z-index: 0;
+    }
+    body::before {
+      width: 500px; height: 500px;
+      background: var(--butter);
+      top: -120px; right: -120px;
+    }
+    body::after {
+      width: 400px; height: 400px;
+      background: var(--sky);
+      bottom: -100px; left: -100px;
+    }
+
+    header {
+      position: relative;
+      z-index: 1;
+      text-align: center;
+      padding: 3rem 1.5rem 1.5rem;
+      max-width: 700px;
+    }
+
+    .badge {
+      display: inline-block;
+      background: var(--card-bg);
+      border: 1.5px solid rgba(180,160,220,0.35);
+      color: var(--muted);
+      font-size: 0.72rem;
+      font-weight: 500;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      padding: 0.3rem 0.9rem;
+      border-radius: 999px;
+      margin-bottom: 1.1rem;
+      backdrop-filter: blur(8px);
+    }
+
+    h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(2rem, 5vw, 3rem);
+      font-weight: 700;
+      line-height: 1.15;
+      color: var(--text);
+      margin-bottom: 0.9rem;
+    }
+
+    h1 span {
+      background: linear-gradient(90deg, #b388d6, #7cbfbd);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    header p {
+      font-size: 1rem;
+      font-weight: 300;
+      color: var(--muted);
+      line-height: 1.7;
+      max-width: 520px;
+      margin: 0 auto;
+    }
+
+    main {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 680px;
+      padding: 0 1.5rem 3rem;
+    }
+
+    .card {
+      background: var(--card-bg);
+      backdrop-filter: blur(16px);
+      border: 1.5px solid rgba(255,255,255,0.75);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+      padding: 2rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .card-label {
+      font-size: 0.7rem;
+      font-weight: 500;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .card-label::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: rgba(180,160,220,0.25);
+    }
+
+    #canvas-container canvas {
+      border-radius: 16px;
+      display: block;
+      margin: 0 auto;
+      max-width: 100%;
+    }
+
+    #btn-container {
+      margin-top: 1.25rem;
+      display: flex;
+      justify-content: center;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    #btn-container button {
+      background: linear-gradient(135deg, #c9a8e0, #89cdc7);
+      color: white;
+      border: none;
+      border-radius: 999px;
+      padding: 0.65rem 2rem;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.95rem;
+      font-weight: 500;
+      cursor: pointer;
+      letter-spacing: 0.03em;
+      box-shadow: 0 4px 16px rgba(180,140,220,0.30);
+      transition: opacity 0.2s, transform 0.15s;
+    }
+
+    #btn-container button:hover { opacity: 0.88; transform: translateY(-1px); }
+    #btn-container button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+    #reset-btn {
+      display: none;
+      background: rgba(255,255,255,0.7) !important;
+      color: var(--muted) !important;
+      border: 1.5px solid rgba(180,160,220,0.4) !important;
+      box-shadow: none !important;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.95rem;
+      font-weight: 500;
+      cursor: pointer;
+      border-radius: 999px;
+      padding: 0.65rem 2rem;
+      transition: opacity 0.2s, transform 0.15s;
+    }
+
+    #reset-btn:hover { opacity: 0.8; transform: translateY(-1px); }
+
+    /* ── Result banner ── */
+    #result-card {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+      background: linear-gradient(135deg, rgba(195,168,224,0.25), rgba(137,205,199,0.25));
+      border: 1.5px solid rgba(180,160,220,0.35);
+      border-radius: 16px;
+      padding: 1rem 1.5rem;
+      margin-top: 1.25rem;
+      text-align: center;
+      flex-wrap: wrap;
+    }
+
+    #result-card .result-emoji { font-size: 2rem; }
+
+    #result-card .result-text {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    #result-label {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    #result-confidence {
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-top: 0.1rem;
+    }
+
+    /* ── Pills ── */
+    .pills { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+
+    .pill {
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      background: rgba(255,255,255,0.80);
+      border: 1px solid rgba(180,160,220,0.30);
+      border-radius: 999px;
+      padding: 0.4rem 0.85rem;
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--text);
+    }
+
+    .pill-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+    footer {
+      position: relative;
+      z-index: 1;
+      text-align: center;
+      padding: 0 1.5rem 2rem;
+      font-size: 0.78rem;
+      color: var(--muted);
+      font-weight: 300;
+    }
+
+    footer a { color: #a07cc5; text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+  </style>
+</head>
+
+<body>
+
+  <header>
+    <div class="badge">🧠 ML5.js · Teachable Machine</div>
+    <h1>Mammal <span>Classifier</span></h1>
+    <p>A real-time image classifier trained to distinguish between 5 mammals using Google's Teachable Machine and a live webcam feed.</p>
+  </header>
+
+  <main>
+    <div class="card">
+      <div class="card-label">Live Camera Feed</div>
+      <div id="canvas-container"></div>
+
+      <div id="btn-container">
+        <!-- p5 injects Classify button here -->
+        <button id="reset-btn" onclick="resetClassifier()">↩ Try Again</button>
+      </div>
+
+      <div id="result-card">
+        <div class="result-emoji">🐾</div>
+        <div class="result-text">
+          <div id="result-label">—</div>
+          <div id="result-confidence"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">Trained Classes</div>
+      <div class="pills">
+        <div class="pill"><span class="pill-dot" style="background:#d4a8f0;"></span> African Elephant</div>
+        <div class="pill"><span class="pill-dot" style="background:#f0dfa8;"></span> Zebra</div>
+        <div class="pill"><span class="pill-dot" style="background:#a8e0c8;"></span> Alpaca</div>
+        <div class="pill"><span class="pill-dot" style="background:#f0a8b8;"></span> Giraffe</div>
+        <div class="pill"><span class="pill-dot" style="background:#b8c9f0;"></span> Yak</div>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    Built with <a href="https://ml5js.org" target="_blank">ML5.js</a> &amp;
+    <a href="https://p5js.org" target="_blank">p5.js</a> ·
+    Model trained via <a href="https://teachablemachine.withgoogle.com" target="_blank">Google Teachable Machine</a>
+  </footer>
+
+  <script src="static/sketch.js"></script>
+
+  <script>
+    function resetClassifier() {
+      // Hide result and reset button
+      document.getElementById('result-card').style.display = 'none';
+      document.getElementById('reset-btn').style.display = 'none';
+
+      // Show the classify button again
+      let classifyBtn = document.querySelector('#btn-container button:not(#reset-btn)');
+      if (classifyBtn) classifyBtn.style.display = 'inline-block';
+    }
+  </script>
+
+</body>
+</html>
